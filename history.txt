@@ -1,7 +1,2 @@
 #V2
-help
-aaaa a bb cc
-exit
-a
-abcd efg
 exit

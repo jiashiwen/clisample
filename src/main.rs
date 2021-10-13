@@ -1,23 +1,22 @@
-use clap::{App, Arg, ArgMatches};
+use clap::{App};
 use logger::init_log;
-use log::info;
+// use log::info;
 
 
 mod cmd;
 mod logger;
 mod interact;
+mod commons;
 
 
 fn main() {
     init_log();
-    let vec = vec!["My Super Program", "config", "show", "all"];
-    // cmd::run_from(vec);
     cmd::run_app();
-    // println!("{:?}", all_subcommands(&cmd::root_app(), 0));
 }
 
 fn all_subcommands(app: &App, mut level: isize) {
     let mut space = "".to_string();
+
     for _ in 0..level {
         space.push_str(" ");
     }
