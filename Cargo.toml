@@ -18,6 +18,7 @@ serde_json = "1.0.68"
 cfg-if = "1.0"
 memchr = "2.0"
 rustyline-derive = "0.5.0"
+lazy_static = "1.4.0"
 
 [[example]]
 name = "readline"

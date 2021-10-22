@@ -1,20 +1,20 @@
+use crate::cmd::{run_from, get_CommandCompleter};
+use crate::commons::CommandCompleter;
+use log::error;
+use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
-use rustyline::{Editor, Config, EditMode, Context, validate, OutputStreamType, CompletionType};
-use shellwords::{split};
-use crate::cmd::{run_from};
-use crate::commons::FileCompleter;
-use rustyline::completion::{Completer, Pair, FilenameCompleter};
-use rustyline_derive::Helper;
-use rustyline::highlight::{MatchingBracketHighlighter, Highlighter};
+use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
+use rustyline::hint::{Hinter, HistoryHinter};
 use rustyline::validate::{MatchingBracketValidator, Validator};
-use rustyline::hint::{HistoryHinter, Hinter};
+use rustyline::{validate, CompletionType, Config, Context, Editor, OutputStreamType};
+use rustyline_derive::Helper;
+use shellwords::split;
 use std::borrow::Cow::{self, Borrowed, Owned};
-
 
 #[derive(Helper)]
 struct MyHelper {
     // completer: FileCompleter,
-    completer: FileCompleter,
+    completer: CommandCompleter,
     highlighter: MatchingBracketHighlighter,
     validator: MatchingBracketValidator,
     hinter: HistoryHinter,
@@ -36,7 +36,6 @@ impl Completer for MyHelper {
 
 impl Hinter for MyHelper {
     type Hint = String;
-
     fn hint(&self, line: &str, pos: usize, ctx: &Context<'_>) -> Option<String> {
         // self.hinter.hint(line, pos, ctx)
         Some("".to_string())
@@ -83,19 +82,14 @@ impl Validator for MyHelper {
 }
 
 pub fn run() {
-    println!("readline sample!");
-
-
     let config = Config::builder()
         .history_ignore_space(true)
         .completion_type(CompletionType::List)
         .output_stream(OutputStreamType::Stdout)
-        // .edit_mode(EditMode::Emacs)
         .build();
 
-
     let h = MyHelper {
-        completer: FileCompleter::new(),
+        completer: get_CommandCompleter(),
         highlighter: MatchingBracketHighlighter::new(),
         hinter: HistoryHinter {},
         colored_prompt: "".to_owned(),
@@ -114,12 +108,12 @@ pub fn run() {
         let p = format!("{}> ", "clisample");
         rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{}\x1b[0m", p);
         let readline = rl.readline(&p);
-        // let readline = rl.readline("clisample> ");
         match readline {
             Ok(line) => {
-                if line.is_empty() {
+                if line.trim_start().is_empty() {
                     continue;
                 }
+
                 rl.add_history_entry(line.as_str());
                 match split(line.as_str()).as_mut() {
                     Ok(arg) => {
@@ -149,5 +143,6 @@ pub fn run() {
             }
         }
     }
-    rl.append_history("/tmp/history");
+    rl.append_history("/tmp/history")
+        .map_err(|err| error!("{}", err)).ok();
 }

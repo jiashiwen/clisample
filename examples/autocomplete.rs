@@ -1,8 +1,8 @@
-use std::io;
-use std::fs;
-use std::time;
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json;
+use std::fs;
+use std::io;
+use std::time;
 
 #[derive(Deserialize, Debug)]
 struct Case {
@@ -11,7 +11,8 @@ struct Case {
 }
 
 fn main() -> Result<(), std::io::Error> {
-    let cases: Vec<Case> = serde_json::from_reader(io::BufReader::new(fs::File::open("data.json")?))?;
+    let cases: Vec<Case> =
+        serde_json::from_reader(io::BufReader::new(fs::File::open("data.json")?))?;
     let before = time::Instant::now();
     for case in cases {
         autocomplete(&case.typed, &case.possibilities);
@@ -22,9 +23,14 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn autocomplete(typed: &str, possibilities: &Vec<String>) -> String {
-    let matches: Vec<&String> = possibilities.iter().filter(|p| p.starts_with(typed)).collect();
+    let matches: Vec<&String> = possibilities
+        .iter()
+        .filter(|p| p.starts_with(typed))
+        .collect();
     // If there are no matches, proceed to the next rule.
-    if matches.len() == 0 { return autocomplete_contiguous(typed, possibilities); }
+    if matches.len() == 0 {
+        return autocomplete_contiguous(typed, possibilities);
+    }
     // Scan the common prefix 1 char a time.
     for i in typed.len().. {
         let mut c = None;
@@ -32,7 +38,9 @@ fn autocomplete(typed: &str, possibilities: &Vec<String>) -> String {
             if m.len() <= i || c != None && m.as_bytes()[i] != c.unwrap() {
                 return m[..i].to_string();
             }
-            if c == None { c = Some(m.as_bytes()[i]) }
+            if c == None {
+                c = Some(m.as_bytes()[i])
+            }
         }
     }
     typed.to_string()
@@ -40,8 +48,12 @@ fn autocomplete(typed: &str, possibilities: &Vec<String>) -> String {
 
 fn autocomplete_contiguous(typed: &str, possibilities: &Vec<String>) -> String {
     let matches: Vec<&String> = possibilities.iter().filter(|p| p.contains(typed)).collect();
-    if matches.len() == 1 { return matches[0].to_string(); }
-    if matches.len() > 1 { return typed.to_string(); }
+    if matches.len() == 1 {
+        return matches[0].to_string();
+    }
+    if matches.len() > 1 {
+        return typed.to_string();
+    }
     autocomplete_in_order(typed, possibilities)
 }
 
@@ -58,7 +70,9 @@ fn autocomplete_in_order(typed: &str, possibilities: &Vec<String>) -> String {
                     // If we just found the last char.
                     if i + 1 == typed.len() {
                         // There was already a match. It's ambiguous.
-                        if matching != None { return typed.to_string(); }
+                        if matching != None {
+                            return typed.to_string();
+                        }
                         matching = Some(s);
                     }
                 }
@@ -67,6 +81,6 @@ fn autocomplete_in_order(typed: &str, possibilities: &Vec<String>) -> String {
     }
     match matching {
         None => typed.to_string(),
-        Some(m) => m.to_string()
+        Some(m) => m.to_string(),
     }
 }

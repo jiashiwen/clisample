@@ -1,7 +1,6 @@
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use shellwords::{split};
-
+use shellwords::split;
 
 fn main() {
     println!("readline sample!");

@@ -1,4 +1,6 @@
-mod completerforfile;
 mod subcmdcompleter;
 
-pub use completerforfile::FileCompleter;
+pub use subcmdcompleter::CommandCompleter;
+pub use subcmdcompleter::SubCmd;
+
+

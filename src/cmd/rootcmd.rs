@@ -1,47 +1,65 @@
-use clap::{App, Arg, ArgMatches};
-use crate::cmd::new_config_cmd;
-use crate::interact;
+use std::borrow::Borrow;
+
+use clap::{App, Arg, ArgMatches, Subcommand};
+use lazy_static::lazy_static;
 use log::info;
 
-pub fn root_app() -> clap::App<'static> {
-    App::new("clisample")
+use crate::cmd::{new_config_cmd, new_multi_cmd};
+use crate::commons::CommandCompleter;
+use crate::commons::SubCmd;
+use crate::interact;
+
+lazy_static! {
+    static ref CLIAPP: clap::App<'static> = App::new("clisample")
         .version("1.0")
         .author("Shiwen Jia. <jiashiwen@gmail.com>")
         .about("command line sample")
-        .arg(Arg::new("config")
-            .short('c')
-            .long("config")
-            .value_name("FILE")
-            .about("Sets a custom config file")
-            .takes_value(true))
-        .arg(Arg::new("interact")
-            .short('i')
-            .long("interact")
-            .about("run as interact mod"))
-        .arg(Arg::new("v")
-            .short('v')
-            .multiple_occurrences(true)
-            .takes_value(true)
-            .about("Sets the level of verbosity"))
+        .arg(
+            Arg::new("config")
+                .short('c')
+                .long("config")
+                .value_name("FILE")
+                .about("Sets a custom config file")
+                .takes_value(true)
+        )
+        .arg(
+            Arg::new("interact")
+                .short('i')
+                .long("interact")
+                .about("run as interact mod")
+        )
+        .arg(
+            Arg::new("v")
+                .short('v')
+                .multiple_occurrences(true)
+                .takes_value(true)
+                .about("Sets the level of verbosity")
+        )
         .subcommand(new_config_cmd())
-        .subcommand(App::new("test")
-            .about("controls testing features")
-            .version("1.3")
-            .author("Someone E. <someone_else@other.com>")
-            .arg(Arg::new("debug")
-                .short('d')
-                .about("print debug information verbosely")))
+        .subcommand(new_multi_cmd())
+        .subcommand(
+            App::new("test")
+                .about("controls testing features")
+                .version("1.3")
+                .author("Someone E. <someone_else@other.com>")
+                .arg(
+                    Arg::new("debug")
+                        .short('d')
+                        .about("print debug information verbosely")
+                )
+        );
+    static ref SUBCMDS: Vec<SubCmd> = subcommands();
 }
 
 pub fn run_app() {
-    let matches = root_app().get_matches();
-    cmd_match(matches);
+    let matches = CLIAPP.clone().get_matches();
+    cmd_match(&matches);
 }
 
 pub fn run_from(args: Vec<String>) {
-    match root_app().try_get_matches_from(args.clone()) {
+    match App::try_get_matches_from(CLIAPP.to_owned(), args.clone()) {
         Ok(matches) => {
-            cmd_match(matches);
+            cmd_match(&matches);
         }
         Err(err) => {
             err.print().expect("Error writing Error");
@@ -50,16 +68,43 @@ pub fn run_from(args: Vec<String>) {
     };
 }
 
+// 获取全部子命令，用于构建commandcompleter
+pub fn all_subcommand(app: &App, beginlevel: usize, input: &mut Vec<SubCmd>) {
+    let nextlevel = beginlevel + 1;
+    let mut subcmds = vec![];
+    for iterm in app.get_subcommands() {
+        subcmds.push(iterm.get_name().to_string());
+        if iterm.has_subcommands() {
+            all_subcommand(iterm, nextlevel, input);
+        }
+    }
+    let subcommand = SubCmd {
+        level: beginlevel,
+        command_name: app.get_name().to_string(),
+        subcommands: subcmds,
+    };
+    input.push(subcommand);
+}
 
-fn cmd_match(matches: ArgMatches) {
+pub fn get_subcommands() -> Box<[SubCmd]> {
+    Box::from(SUBCMDS.clone())
+}
+
+pub fn get_CommandCompleter() -> CommandCompleter {
+    CommandCompleter::new(SUBCMDS.to_vec())
+}
+
+fn subcommands() -> Vec<SubCmd> {
+    let mut subcmds = vec![];
+    all_subcommand(CLIAPP.clone().borrow(), 0, &mut subcmds);
+    subcmds
+}
+
+fn cmd_match(matches: &ArgMatches) {
     if matches.is_present("interact") {
         interact::run();
         return;
     }
-
-    // if let Some(c) = matches.value_of("config") {
-    //     println!("Value for config: {}", c);
-    // }
 
     // You can see how many times a particular flag or argument occurred
     // Note, only flags can have multiple occurrences
@@ -97,4 +142,3 @@ fn cmd_match(matches: ArgMatches) {
         }
     }
 }
-

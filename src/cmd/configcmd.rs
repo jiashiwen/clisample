@@ -14,12 +14,9 @@ fn config_show_cmd() -> App<'static> {
 }
 
 fn config_show_info_cmd() -> App<'static> {
-    clap::App::new("info")
-        .about("show info")
+    clap::App::new("info").about("show info")
 }
 
 fn config_show_all_cmd() -> App<'static> {
-    clap::App::new("all")
-        .about("show all ")
+    clap::App::new("all").about("show all ")
 }
-
