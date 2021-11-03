@@ -1,13 +1,16 @@
-use std::borrow::Borrow;
-
-use clap::{App, Arg, ArgMatches, Subcommand};
-use lazy_static::lazy_static;
-use log::info;
-
-use crate::cmd::{new_config_cmd, new_multi_cmd};
+use crate::cmd::{new_config_cmd, new_multi_cmd, new_task_cmd};
 use crate::commons::CommandCompleter;
 use crate::commons::SubCmd;
 use crate::interact;
+use crate::request::{ReqResult, Request, RequestTaskListAll};
+use clap::{App, Arg, ArgMatches};
+use lazy_static::lazy_static;
+use log::info;
+use serde_json::{from_reader, Value};
+
+use std::borrow::Borrow;
+use std::fs::File;
+use std::io::{BufReader, Read};
 
 lazy_static! {
     static ref CLIAPP: clap::App<'static> = App::new("clisample")
@@ -37,6 +40,7 @@ lazy_static! {
         )
         .subcommand(new_config_cmd())
         .subcommand(new_multi_cmd())
+        .subcommand(new_task_cmd())
         .subcommand(
             App::new("test")
                 .about("controls testing features")
@@ -86,11 +90,7 @@ pub fn all_subcommand(app: &App, beginlevel: usize, input: &mut Vec<SubCmd>) {
     input.push(subcommand);
 }
 
-pub fn get_subcommands() -> Box<[SubCmd]> {
-    Box::from(SUBCMDS.clone())
-}
-
-pub fn get_CommandCompleter() -> CommandCompleter {
+pub fn get_command_completer() -> CommandCompleter {
     CommandCompleter::new(SUBCMDS.to_vec())
 }
 
@@ -101,6 +101,7 @@ fn subcommands() -> Vec<SubCmd> {
 }
 
 fn cmd_match(matches: &ArgMatches) {
+    let req = Request::new("http://dev:8888".to_string());
     if matches.is_present("interact") {
         interact::run();
         return;
@@ -108,22 +109,149 @@ fn cmd_match(matches: &ArgMatches) {
 
     // You can see how many times a particular flag or argument occurred
     // Note, only flags can have multiple occurrences
-    match matches.occurrences_of("v") {
-        0 => println!("Verbose mode is off"),
-        1 => println!("Verbose mode is kind of on"),
-        2 => println!("Verbose mode is on"),
-        _ => println!("Don't be crazy"),
-    }
+    // match matches.occurrences_of("v") {
+    //     0 => println!("Verbose mode is off"),
+    //     1 => println!("Verbose mode is kind of on"),
+    //     _ => println!("Don't be crazy"),
+    // }
 
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level app
     if let Some(ref matches) = matches.subcommand_matches("test") {
-        // "$ myapp test" was run
         if matches.is_present("debug") {
-            // "$ myapp test -d" was run
             println!("Printing debug info...");
         } else {
             println!("Printing normally...");
+        }
+    }
+
+    if let Some(ref matches) = matches.subcommand_matches("task") {
+        if let Some(create) = matches.subcommand_matches("create") {
+            let file = File::open(create.value_of("path").unwrap());
+            match file {
+                Ok(mut f) => {
+                    let mut data = String::new();
+                    if let Err(e) = f.read_to_string(&mut data) {
+                        println!("{}", e);
+                        return;
+                    };
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    let async_req = async {
+                        let resp = req.create_task(data).await;
+                        let result = ReqResult::new(resp);
+                        result.normal_parsor().await;
+                    };
+                    rt.block_on(async_req);
+                }
+                Err(e) => {
+                    println!("{}", e);
+                }
+            }
+        }
+        if let Some(start) = matches.subcommand_matches("start") {
+            if let Some(taskid) = start.value_of("taskid") {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                let async_req = async {
+                    let resp = req.task_start(taskid.to_string()).await;
+                    let result = ReqResult::new(resp);
+                    result.normal_parsor().await;
+                };
+                rt.block_on(async_req);
+            };
+        }
+        if let Some(stop) = matches.subcommand_matches("stop") {
+            if let Some(taskid) = stop.value_of("taskid") {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                let async_req = async {
+                    let resp = req.task_stop(taskid.to_string()).await;
+                    let result = ReqResult::new(resp);
+                    result.normal_parsor().await;
+                };
+                rt.block_on(async_req);
+            };
+        }
+        if let Some(remove) = matches.subcommand_matches("remove") {
+            if let Some(taskid) = remove.value_of("taskid") {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                let async_req = async {
+                    let resp = req.task_stop(taskid.to_string()).await;
+                    let result = ReqResult::new(resp);
+                    result.normal_parsor().await;
+                };
+                rt.block_on(async_req);
+            };
+        }
+        if let Some(list) = matches.subcommand_matches("list") {
+            match list.subcommand_name() {
+                Some("all") => {
+                    let queryid = list.subcommand_matches("all").unwrap().value_of("queryid");
+                    let mut module = RequestTaskListAll::default();
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    let async_req = async {
+                        match queryid {
+                            None => {
+                                let resp = req.task_list_all(module).await;
+                                let result = ReqResult::new(resp);
+                                result.task_list_all_parsor().await;
+                            }
+                            Some(id) => {
+                                module.set_query_id(id.to_string());
+                                let resp = req.task_list_all(module).await;
+                                let result = ReqResult::new(resp);
+                                result.task_list_all_parsor().await;
+                            }
+                        }
+                    };
+                    rt.block_on(async_req);
+                }
+                Some("byid") => {
+                    let queryid = list.subcommand_matches("byid").unwrap().value_of("taskid");
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    let async_req = async {
+                        let mut ids = vec![];
+                        if let Some(id) = queryid {
+                            ids.push(id.to_string());
+                            let resp = req.task_list_by_ids(ids).await;
+                            let result = ReqResult::new(resp);
+                            result.task_list_byid_parsor().await;
+                        }
+                    };
+                    rt.block_on(async_req);
+                }
+                Some("bynames") => {
+                    let names = list
+                        .subcommand_matches("bynames")
+                        .unwrap()
+                        .value_of("tasksname");
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    let async_req = async {
+                        // let mut namearry = names;
+                        if let Some(namesstr) = names {
+                            let namearry = namesstr.split(',').collect::<Vec<&str>>();
+
+                            let resp = req.task_list_by_names(namearry).await;
+                            let result = ReqResult::new(resp);
+                            result.task_list_bynames_parsor().await;
+                        }
+                    };
+                    rt.block_on(async_req);
+                }
+                // Some("bygroupids") => {
+                //     println!("{}", "bygroupids");
+                //     if let Some(argmatches) = list.subcommand_matches("bygroupids") {
+                //         if let Some(groupids) = argmatches.value_of("tasksgroupid") {
+                //             let rt = tokio::runtime::Runtime::new().unwrap();
+                //             let async_req = async {
+                //             let groupidsarray = groupids.split(',').collect::<Vec<&str>>();
+                //             let resp = req.task_list_by_groupids(groupidsarray).await;
+                //             let result=ReqResult::new(resp);
+                //         }
+                //             rt.block_on(async_req);
+                //         };
+                //     };
+                // }
+                _ => {}
+            }
         }
     }
 

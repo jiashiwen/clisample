@@ -1,4 +1,4 @@
-use crate::cmd::{run_from, get_CommandCompleter};
+use crate::cmd::{run_from, get_command_completer};
 use crate::commons::CommandCompleter;
 use log::error;
 use rustyline::completion::{Completer, Pair};
@@ -37,7 +37,7 @@ impl Completer for MyHelper {
 impl Hinter for MyHelper {
     type Hint = String;
     fn hint(&self, line: &str, pos: usize, ctx: &Context<'_>) -> Option<String> {
-        // self.hinter.hint(line, pos, ctx)
+        self.hinter.hint(line, pos, ctx);
         Some("".to_string())
     }
 }
@@ -89,7 +89,7 @@ pub fn run() {
         .build();
 
     let h = MyHelper {
-        completer: get_CommandCompleter(),
+        completer: get_command_completer(),
         highlighter: MatchingBracketHighlighter::new(),
         hinter: HistoryHinter {},
         colored_prompt: "".to_owned(),

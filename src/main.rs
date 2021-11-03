@@ -4,6 +4,7 @@ mod cmd;
 mod commons;
 mod interact;
 mod logger;
+mod request;
 
 fn main() {
     init_log();
