@@ -1,16 +1,18 @@
 use crate::cmd::{new_config_cmd, new_multi_cmd, new_task_cmd};
 use crate::commons::CommandCompleter;
 use crate::commons::SubCmd;
-use crate::interact;
+
+use crate::configure::set_config_file_path;
+use crate::configure::{self, get_config, get_config_file_path};
 use crate::request::{ReqResult, Request, RequestTaskListAll};
+use crate::{configure::set_config, interact};
 use clap::{App, Arg, ArgMatches};
 use lazy_static::lazy_static;
 use log::info;
-use serde_json::{from_reader, Value};
 
 use std::borrow::Borrow;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::Read;
 
 lazy_static! {
     static ref CLIAPP: clap::App<'static> = App::new("clisample")
@@ -57,6 +59,11 @@ lazy_static! {
 
 pub fn run_app() {
     let matches = CLIAPP.clone().get_matches();
+    if let Some(c) = matches.value_of("config") {
+        println!("config path is:{}", c);
+        set_config_file_path(c.to_string());
+    }
+    set_config(&get_config_file_path());
     cmd_match(&matches);
 }
 
@@ -67,7 +74,6 @@ pub fn run_from(args: Vec<String>) {
         }
         Err(err) => {
             err.print().expect("Error writing Error");
-            // do_something
         }
     };
 }
@@ -101,7 +107,10 @@ fn subcommands() -> Vec<SubCmd> {
 }
 
 fn cmd_match(matches: &ArgMatches) {
-    let req = Request::new("http://dev:8888".to_string());
+    let config = get_config().unwrap();
+    let server = &config["server"];
+    // let req = Request::new("http://dev:8888".to_string());
+    let req = Request::new(server.clone());
     if matches.is_present("interact") {
         interact::run();
         return;
@@ -260,7 +269,9 @@ fn cmd_match(matches: &ArgMatches) {
             match show.subcommand_name() {
                 Some("all") => {
                     println!("config show all");
-                    info!("log show all")
+                    info!("log show all");
+                    configure::get_config_file_path();
+                    println!("{:?}", configure::get_config());
                 }
                 Some("info") => {
                     println!("config show info");

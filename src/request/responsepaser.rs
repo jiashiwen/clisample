@@ -2,8 +2,6 @@ use prettytable::{cell, row, Cell, Row, Table};
 use reqwest::Response;
 use serde_json::{to_string_pretty, Value};
 
-use crate::cmd::new_task_cmd;
-
 use super::req;
 
 pub struct ReqResult {

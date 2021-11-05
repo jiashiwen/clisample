@@ -1,18 +1,11 @@
+use serde_yaml::{from_str, Value};
 use std::fs;
-use yaml_rust::{YamlLoader, YamlEmitter};
+use yaml_rust::{yaml, YamlEmitter, YamlLoader};
 
 fn main() {
-    let contents = fs::read_to_string("Settings.yml")
-        .expect("Something went wrong reading the file");
-    let s =
-        "
-foo:
-    - list1
-    - list2
-bar:
-    - 1
-    - 2.0
-";
+    let contents =
+        fs::read_to_string("Settings.yml").expect("Something went wrong reading the file");
+
     let docs = YamlLoader::load_from_str(contents.as_str()).unwrap();
 
     // Multi document support, doc is a yaml::Yaml
@@ -23,21 +16,17 @@ bar:
     println!("{:?}", doc);
     println!("{:?}", doc["services"]["redissyncer-monitor"]);
 
-    // // Index access for map & array
-    // assert_eq!(doc["foo"][0].as_str().unwrap(), "list1");
-    // assert_eq!(doc["bar"][1].as_f64().unwrap(), 2.0);
-    //
-    // // Chained key/array access is checked and won't panic,
-    // // return BadValue if they are not exist.
-    // assert!(doc["INVALID_KEY"][100].is_badvalue());
-
     // Dump the YAML object
     let mut out_str = String::new();
     {
         let mut emitter = YamlEmitter::new(&mut out_str);
-        emitter.dump(&doc["services"]["redissyncer-monitor"]).unwrap(); // dump the YAML object to a String
+        emitter
+            .dump(&doc["services"]["redissyncer-monitor"])
+            .unwrap(); // dump the YAML object to a String
     }
     println!("{}", out_str);
-
-    println!("{}", 1 << 3);
+    let s = r#"{ A: 65, B: 66, C: 67 }"#;
+    let object = from_str::<Value>(s).unwrap();
+    let x = object.get("A").unwrap();
+    println!("{:?}", x);
 }
